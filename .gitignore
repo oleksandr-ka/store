@@ -1,0 +1,35 @@
+# Ruby
+*.gem
+*.rbc
+/task1/.config
+/task1/coverage/
+/task1/InstalledFiles
+/task1/pkg/
+/task1/spec/reports/
+/task1/spec/examples.txt
+/task1/test/tmp/
+/task1/test/version_tmp/
+/task1/tmp/
+
+# Bundler
+/task1/.bundle/
+/task1/vendor/bundle
+
+# RSpec
+.rspec_status
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+

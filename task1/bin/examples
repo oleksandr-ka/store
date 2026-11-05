@@ -1,0 +1,141 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/checkout'
+
+# Setup discount rules
+puts "=" * 70
+puts "🛒 Grocery Store Checkout - Examples from Requirements"
+puts "=" * 70
+puts
+
+# Load product catalog
+catalog = ProductLoader.default
+
+# Define rules
+bogof_rule = DiscountRules::BuyOneGetOneFreeRule.new('FR')
+bulk_rule = DiscountRules::BulkDiscountRule.new('SR', 3, unit_price: '4.50')
+
+puts "📋 Active Discount Rules:"
+puts "  • #{bogof_rule.description}"
+puts "  • #{bulk_rule.description}"
+puts
+
+# Example 1: FR, SR, FR, FR, CF = $22.45
+puts "-" * 70
+puts "Example 1: FR, SR, FR, FR, CF"
+puts "-" * 70
+
+co = Checkout.new(bogof_rule, bulk_rule, catalog: catalog)
+co.scan('FR')
+co.scan('SR')
+co.scan('FR')
+co.scan('FR')
+co.scan('CF')
+
+puts "Items scanned: #{co.items.join(', ')}"
+puts "Expected total: $22.45"
+puts "Actual total:   $#{'%.2f' % co.total.to_f}"
+puts "✅ PASS" if co.total == BigDecimal('22.45')
+puts
+
+# Show detailed breakdown
+details = co.details
+puts "Breakdown:"
+details[:items].each do |item|
+  product = item[:product]
+  puts "  #{product.name} (#{product.code}) x#{item[:quantity]}"
+  puts "    Base:  $#{'%.2f' % item[:base_price].to_f}"
+  if item[:discount] > 0
+    puts "    Save:  -$#{'%.2f' % item[:discount].to_f} (#{item[:rule_applied]})"
+  end
+  puts "    Final: $#{'%.2f' % item[:final_price].to_f}"
+end
+puts
+
+# Example 2: FR, FR = $3.11
+puts "-" * 70
+puts "Example 2: FR, FR"
+puts "-" * 70
+
+co = Checkout.new(bogof_rule, bulk_rule, catalog: catalog)
+co.scan('FR')
+co.scan('FR')
+
+puts "Items scanned: #{co.items.join(', ')}"
+puts "Expected total: $3.11"
+puts "Actual total:   $#{'%.2f' % co.total.to_f}"
+puts "✅ PASS" if co.total == BigDecimal('3.11')
+puts
+
+# Example 3: SR, SR, FR, SR = $16.61
+puts "-" * 70
+puts "Example 3: SR, SR, FR, SR"
+puts "-" * 70
+
+co = Checkout.new(bogof_rule, bulk_rule, catalog: catalog)
+co.scan('SR')
+co.scan('SR')
+co.scan('FR')
+co.scan('SR')
+
+puts "Items scanned: #{co.items.join(', ')}"
+puts "Expected total: $16.61"
+puts "Actual total:   $#{'%.2f' % co.total.to_f}"
+puts "✅ PASS" if co.total == BigDecimal('16.61')
+puts
+
+# Show detailed breakdown
+details = co.details
+puts "Breakdown:"
+details[:items].each do |item|
+  product = item[:product]
+  puts "  #{product.name} (#{product.code}) x#{item[:quantity]}"
+  puts "    Base:  $#{'%.2f' % item[:base_price].to_f}"
+  if item[:discount] > 0
+    puts "    Save:  -$#{'%.2f' % item[:discount].to_f} (#{item[:rule_applied]})"
+  end
+  puts "    Final: $#{'%.2f' % item[:final_price].to_f}"
+end
+puts
+
+# Additional Example: Complex cart
+puts "-" * 70
+puts "Bonus Example: Complex Cart"
+puts "-" * 70
+
+co = Checkout.new(bogof_rule, bulk_rule, catalog: catalog)
+# Add various items
+co.scan('FR')  # Will be BOGOF
+co.scan('FR')  # Free
+co.scan('SR')  # Will be bulk
+co.scan('SR')  # Will be bulk
+co.scan('SR')  # Will be bulk
+co.scan('SR')  # Will be bulk
+co.scan('CF')  # Regular price
+co.scan('AJ')  # Regular price
+
+puts "Items scanned: #{co.items.join(', ')}"
+total = co.total
+puts "Total: $#{'%.2f' % total.to_f}"
+puts
+
+details = co.details
+puts "Detailed Breakdown:"
+details[:items].each do |item|
+  product = item[:product]
+  puts "  #{product.name} (#{product.code}) x#{item[:quantity]}"
+  puts "    Base:  $#{'%.2f' % item[:base_price]}"
+  if item[:discount] > 0
+    puts "    Save:  -$#{'%.2f' % item[:discount]} (#{item[:rule_applied]})"
+  else
+    puts "    Save:  No discount applied"
+  end
+  puts "    Final: $#{'%.2f' % item[:final_price]}"
+  puts
+end
+
+puts "=" * 70
+puts "💰 Grand Total: $#{'%.2f' % details[:total].to_f}"
+puts "💵 Total Saved: $#{'%.2f' % details[:items].sum { |i| i[:discount] }.to_f}"
+puts "=" * 70

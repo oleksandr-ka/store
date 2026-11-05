@@ -1,0 +1,179 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/checkout'
+
+# Interactive checkout demo
+class InteractiveCheckout
+  def initialize
+    @catalog = ProductLoader.default
+    @rules = setup_rules
+    @checkout = Checkout.new(*@rules, catalog: @catalog)
+  end
+
+  def run
+    print_welcome
+    loop do
+      print_prompt
+      line = $stdin.gets
+      break unless line
+
+      input = line.strip.upcase
+
+      case input
+      when 'HELP', 'H', '?'
+        print_help
+      when 'LIST', 'L'
+        list_products
+      when 'RULES', 'R'
+        list_rules
+      when 'CART', 'C'
+        show_cart
+      when 'TOTAL', 'T'
+        show_total
+      when 'DETAILS', 'D'
+        show_details
+      when 'CLEAR'
+        clear_cart
+      when 'QUIT', 'EXIT', 'Q'
+        puts "\n👋 Thanks for shopping with us!\n"
+        break
+      else
+        if @catalog.exists?(input)
+          scan_item(input)
+        else
+          puts "❌ Unknown command. Type 'help' for available commands."
+        end
+      end
+    end
+  end
+
+  private
+
+  def setup_rules
+    [
+      DiscountRules::BuyOneGetOneFreeRule.new('FR'),
+      DiscountRules::BulkDiscountRule.new('SR', 3, unit_price: '4.50')
+    ]
+  end
+
+  def print_welcome
+    puts "\n" + "=" * 60
+    puts "  🛒 Welcome to the Grocery Store Checkout System!"
+    puts "=" * 60
+    puts "\nType 'help' to see available commands.\n\n"
+  end
+
+  def print_help
+    puts "\n📋 Available Commands:"
+    puts "-" * 60
+    puts "  <product code>  - Scan a product"
+    puts "  list (l)        - Show available products"
+    puts "  rules (r)       - Show active discount rules"
+    puts "  cart (c)        - Show items in cart"
+    puts "  total (t)       - Show total price"
+    puts "  details (d)     - Show detailed price breakdown"
+    puts "  clear           - Clear cart"
+    puts "  help (h, ?)     - Show this help"
+    puts "  quit (q, exit)  - Exit"
+    puts "-" * 60 + "\n"
+  end
+
+  def list_products
+    puts "\n📦 Available Products:"
+    puts "-" * 60
+    @catalog.all.each do |product|
+      puts "  #{product}"
+    end
+    puts "-" * 60 + "\n"
+  end
+
+  def list_rules
+    puts "\n🎯 Active Discount Rules:"
+    puts "-" * 60
+    @rules.each do |rule|
+      puts "  ✓ #{rule.description}"
+    end
+    puts "-" * 60 + "\n"
+  end
+
+  def scan_item(code)
+    @checkout.scan(code)
+    product = @catalog.find(code)
+    puts "✓ Added #{product.name} to cart"
+  rescue ProductCatalog::ProductNotFoundError => e
+    puts "❌ #{e.message}"
+  end
+
+  def show_cart
+    if @checkout.items.empty?
+      puts "\n🛒 Your cart is empty.\n\n"
+      return
+    end
+
+    puts "\n🛒 Items in Cart:"
+    puts "-" * 60
+    grouped = @checkout.items.each_with_object(Hash.new(0)) do |code, counts|
+      counts[code] += 1
+    end
+
+    grouped.each do |code, quantity|
+      product = @catalog.find(code)
+      puts "  #{product.name} (#{code}) x #{quantity}"
+    end
+    puts "-" * 60
+    puts "  Total items: #{@checkout.item_count}\n\n"
+  end
+
+  def show_total
+    if @checkout.items.empty?
+      puts "\n💰 Total: $0.00\n\n"
+      return
+    end
+
+    total = @checkout.total
+    puts "\n💰 Total: $#{'%.2f' % total}\n\n"
+  end
+
+  def show_details
+    if @checkout.items.empty?
+      puts "\n📊 No items in cart.\n\n"
+      return
+    end
+
+    details = @checkout.details
+
+    puts "\n📊 Price Breakdown:"
+    puts "=" * 60
+
+    details[:items].each do |item|
+      product = item[:product]
+      puts "\n#{product.name} (#{product.code}) x #{item[:quantity]}"
+      puts "  Base price:  $#{'%.2f' % item[:base_price]}"
+
+      if item[:discount] > 0
+        puts "  Discount:    -$#{'%.2f' % item[:discount]}"
+        puts "  Rule:        #{item[:rule_applied]}"
+        puts "  Final price: $#{'%.2f' % item[:final_price]}"
+      else
+        puts "  Final price: $#{'%.2f' % item[:final_price]} (no discount)"
+      end
+    end
+
+    puts "\n" + "=" * 60
+    puts "💰 TOTAL: $#{'%.2f' % details[:total]}"
+    puts "=" * 60 + "\n\n"
+  end
+
+  def clear_cart
+    @checkout.clear
+    puts "\n🗑️  Cart cleared.\n\n"
+  end
+
+  def print_prompt
+    print "checkout> "
+  end
+end
+
+# Run the interactive demo
+InteractiveCheckout.new.run if __FILE__ == $PROGRAM_NAME
